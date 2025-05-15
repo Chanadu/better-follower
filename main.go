@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
-	_ "github.com/joho/godotenv/autoload"
+	"fmt"
 	"os"
+
+	_ "github.com/joho/godotenv/autoload"
 )
 
 type Config struct {
@@ -18,7 +20,12 @@ func main() {
 
 	ctx := context.Background()
 
-	setupYoutubeAPI(ctx, conf, "youtube")
+	details, recent, err := setupYoutubeAPI(ctx, conf, "jcole")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(details)
+	fmt.Println("Most Recent Video Title:", recent)
 
 	createServer()
 }

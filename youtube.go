@@ -2,43 +2,80 @@ package main
 
 import (
 	"context"
-	"log"
+	"fmt"
 
 	"google.golang.org/api/option"
 	"google.golang.org/api/youtube/v3"
 )
 
-func setupYoutubeAPI(ctx context.Context, conf Config, channelName string) {
+type YoutubeAPI struct {
+	API_KEY        string
+	YoutubeService *youtube.Service
+}
+
+func NewYoutubeAPI(ctx context.Context, conf Config) (api *YoutubeAPI, err error) {
 	apiKey := string(conf.API_KEY)
 	youtubeService, err := youtube.NewService(ctx, option.WithAPIKey(apiKey))
 	if err != nil {
-		log.Fatalf("Error creating YouTube service: %v", err)
+		return nil, fmt.Errorf("error creating YouTube service: %w", err)
+	}
+	return &YoutubeAPI{
+		apiKey,
+		youtubeService
+	}, nil
+}
+
+func setupYoutubeAPI(ctx context.Context, conf Config) (*YoutubeAPI, error) {
+	apiKey := string(conf.API_KEY)
+	youtubeService, err := youtube.NewService(ctx, option.WithAPIKey(apiKey))
+
+	if err != nil {
+		return "", "", fmt.Errorf("error creating YouTube service: %w", err)
 	}
 
-	// Search for the channel by name
-	searchCall := youtubeService.Search.List([]string{"snippet"}).Q(channelName).Type("channel").MaxResults(1)
+	// Search for channels by name
+	// Search for the channel using its @tag
+	searchCall := youtubeService.Channels.List([]string{"snippet"}).ForHandle(channelName)
 	searchResponse, err := searchCall.Do()
 	if err != nil {
-		log.Fatalf("Error searching for channel: %v", err)
+		return "", "", fmt.Errorf("error searching for channels: %w", err)
 	}
 
 	if len(searchResponse.Items) == 0 {
-		log.Fatalf("No channel found with the name: %s", channelName)
+		return "", "", fmt.Errorf("no channels found with the name: %s", channelName)
 	}
 
-	channelID := searchResponse.Items[0].Snippet.ChannelId
+	// Match the exact channel @tag
+	channelID := searchResponse.Items[0].Id
+
+	// Retrieve the most recent video using the Search endpoint
+	videoSearchCall := youtubeService.Search.List([]string{"snippet"}).ChannelId(channelID).Type("video").Order("date").MaxResults(1)
+	videoSearchResponse, err := videoSearchCall.Do()
+
+	if err != nil {
+		return "", "", fmt.Errorf("error retrieving most recent video: %w", err)
+	}
+
+	if len(videoSearchResponse.Items) == 0 {
+		return "", "", fmt.Errorf("no videos found for channel ID: %s", channelID)
+	}
+
+	mostRecentVideoTitle := videoSearchResponse.Items[0].Snippet.Title
 
 	// Retrieve channel details
-	channelCall := youtubeService.Channels.List([]string{"snippet"}).Id(channelID)
+	channelCall := youtubeService.Channels.List([]string{"snippet", "statistics"}).Id(channelID)
 	channelResponse, err := channelCall.Do()
 	if err != nil {
-		log.Fatalf("Error retrieving channel details: %v", err)
+		return "", "", fmt.Errorf("error retrieving channel details: %w", err)
 	}
 
 	if len(channelResponse.Items) == 0 {
-		log.Fatalf("No details found for channel ID: %s", channelID)
+		return "", "", fmt.Errorf("no details found for channel ID: %s", channelID)
 	}
 
-	creationTime := channelResponse.Items[0].Snippet.PublishedAt
-	log.Printf("Channel '%s' was created on: %s", channelName, creationTime)
+	channel := channelResponse.Items[0]
+	channelDetails := fmt.Sprintf("Channel Found:\nTitle: %s\nDescription: %s\nSubscribers: %d\nCreation Date: %s",
+		channel.Snippet.Title, channel.Snippet.Description, channel.Statistics.SubscriberCount, channel.Snippet.PublishedAt)
+
+	return channelDetails, mostRecentVideoTitle, nil
 }
