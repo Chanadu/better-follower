@@ -30,5 +30,6 @@ func main() {
 	http.ListenAndServe(":8090", nil)
 
 	ctx := context.Background()
-	youtubeService, err := youtube.NewService(ctx)
+
+	setupYoutubeAPI(ctx, "client_secret.json")
 }
