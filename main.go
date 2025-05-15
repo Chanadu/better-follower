@@ -2,34 +2,23 @@ package main
 
 import (
 	"context"
-	"fmt"
-	"net/http"
-
-	"google.golang.org/api/youtube/v3"
+	_ "github.com/joho/godotenv/autoload"
+	"os"
 )
 
-func hello(w http.ResponseWriter, req *http.Request) {
-
-	fmt.Fprintf(w, "hello\n")
-}
-
-func headers(w http.ResponseWriter, req *http.Request) {
-
-	for name, headers := range req.Header {
-		for _, h := range headers {
-			fmt.Fprintf(w, "%v: %v\n", name, h)
-		}
-	}
+type Config struct {
+	API_KEY string
 }
 
 func main() {
 
-	http.HandleFunc("/hello", hello)
-	http.HandleFunc("/headers", headers)
-
-	http.ListenAndServe(":8090", nil)
+	conf := Config{
+		API_KEY: os.Getenv("API_KEY"),
+	}
 
 	ctx := context.Background()
 
-	setupYoutubeAPI(ctx, "client_secret.json")
+	setupYoutubeAPI(ctx, conf, "youtube")
+
+	createServer()
 }
