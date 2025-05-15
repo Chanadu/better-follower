@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	"google.golang.org/api/option"
 	"google.golang.org/api/youtube/v3"
@@ -21,35 +22,30 @@ func NewYoutubeAPI(ctx context.Context, conf Config) (api *YoutubeAPI, err error
 	}
 	return &YoutubeAPI{
 		apiKey,
-		youtubeService
+		youtubeService,
 	}, nil
 }
 
-func setupYoutubeAPI(ctx context.Context, conf Config) (*YoutubeAPI, error) {
-	apiKey := string(conf.API_KEY)
-	youtubeService, err := youtube.NewService(ctx, option.WithAPIKey(apiKey))
+func (yAPI *YoutubeAPI) SearchByHandle(handle string) (channelDetails string, mostRecentVideoTitle string, err error) {
 
-	if err != nil {
-		return "", "", fmt.Errorf("error creating YouTube service: %w", err)
-	}
-
-	// Search for channels by name
-	// Search for the channel using its @tag
-	searchCall := youtubeService.Channels.List([]string{"snippet"}).ForHandle(channelName)
+	searchCall := yAPI.YoutubeService.Channels.List([]string{"snippet"}).ForHandle(handle)
 	searchResponse, err := searchCall.Do()
 	if err != nil {
 		return "", "", fmt.Errorf("error searching for channels: %w", err)
 	}
 
 	if len(searchResponse.Items) == 0 {
-		return "", "", fmt.Errorf("no channels found with the name: %s", channelName)
+		return "", "", fmt.Errorf("no channels found with the name: %s", handle)
 	}
 
-	// Match the exact channel @tag
 	channelID := searchResponse.Items[0].Id
 
-	// Retrieve the most recent video using the Search endpoint
-	videoSearchCall := youtubeService.Search.List([]string{"snippet"}).ChannelId(channelID).Type("video").Order("date").MaxResults(1)
+	videoSearchCall := yAPI.YoutubeService.Search.List([]string{"snippet"}).
+		ChannelId(channelID).
+		Type("video").
+		Order("date").
+		MaxResults(1)
+
 	videoSearchResponse, err := videoSearchCall.Do()
 
 	if err != nil {
@@ -57,13 +53,12 @@ func setupYoutubeAPI(ctx context.Context, conf Config) (*YoutubeAPI, error) {
 	}
 
 	if len(videoSearchResponse.Items) == 0 {
-		return "", "", fmt.Errorf("no videos found for channel ID: %s", channelID)
+		return "", "", fmt.Errorf("no videos found for channel: %s (ID: %s)", handle, channelID)
 	}
 
-	mostRecentVideoTitle := videoSearchResponse.Items[0].Snippet.Title
+	mostRecentVideoTitle = videoSearchResponse.Items[0].Snippet.Title
 
-	// Retrieve channel details
-	channelCall := youtubeService.Channels.List([]string{"snippet", "statistics"}).Id(channelID)
+	channelCall := yAPI.YoutubeService.Channels.List([]string{"snippet", "statistics"}).Id(channelID)
 	channelResponse, err := channelCall.Do()
 	if err != nil {
 		return "", "", fmt.Errorf("error retrieving channel details: %w", err)
@@ -74,7 +69,7 @@ func setupYoutubeAPI(ctx context.Context, conf Config) (*YoutubeAPI, error) {
 	}
 
 	channel := channelResponse.Items[0]
-	channelDetails := fmt.Sprintf("Channel Found:\nTitle: %s\nDescription: %s\nSubscribers: %d\nCreation Date: %s",
+	channelDetails = fmt.Sprintf("Channel Found:\nTitle: %s\nDescription: %s\nSubscribers: %d\nCreation Date: %s",
 		channel.Snippet.Title, channel.Snippet.Description, channel.Statistics.SubscriberCount, channel.Snippet.PublishedAt)
 
 	return channelDetails, mostRecentVideoTitle, nil

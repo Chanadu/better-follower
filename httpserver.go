@@ -5,25 +5,32 @@ import (
 	"net/http"
 )
 
-func hello(w http.ResponseWriter, req *http.Request) {
-
-	fmt.Fprintf(w, "hello\n")
+func home(w http.ResponseWriter, req *http.Request) {
+	fmt.Fprintf(w, "home\n")
 }
 
-func headers(w http.ResponseWriter, req *http.Request) {
-
-	for name, headers := range req.Header {
-		for _, h := range headers {
-			fmt.Fprintf(w, "%v: %v\n", name, h)
+func (yAPI *YoutubeAPI) HandleSearchHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		handle := req.URL.Path[len("/artist/"):]
+		channelDetails, mostRecentVideoTitle, err := yAPI.SearchByHandle(handle)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
+		fmt.Fprintf(w, "Channel Details: %s\nMost Recent Video Title: %s\n", channelDetails, mostRecentVideoTitle)
 	}
 }
 
-func createServer() {
-	http.HandleFunc("/", hello)
-	http.HandleFunc("/headers", headers)
+func createServer(yAPI *YoutubeAPI) error {
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/", home)
+	mux.HandleFunc("/artist/{handle}", yAPI.HandleSearchHandler())
+
 	fmt.Println("Starting server on :8080")
-	if err := http.ListenAndServe(":8080", nil); err != nil {
-		fmt.Println("Error starting server:", err)
+	err := http.ListenAndServe(":8080", mux)
+	if err != nil {
+		return fmt.Errorf("error starting server: %w", err)
 	}
+	return nil
 }

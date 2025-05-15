@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os"
 
 	_ "github.com/joho/godotenv/autoload"
@@ -20,12 +19,14 @@ func main() {
 
 	ctx := context.Background()
 
-	details, recent, err := setupYoutubeAPI(ctx, conf, "jcole")
+	yAPI, err := NewYoutubeAPI(ctx, conf)
+
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(details)
-	fmt.Println("Most Recent Video Title:", recent)
 
-	createServer()
+	err = createServer(yAPI)
+	if err != nil {
+		panic(err)
+	}
 }
