@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 func home(w http.ResponseWriter, req *http.Request) {
@@ -18,8 +19,10 @@ func (yAPI *YoutubeAPI) RedirectToHandleSearchHandler() http.HandlerFunc {
 
 func (yAPI *YoutubeAPI) HandleSearchHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
-		handle := req.URL.Path[len("/artist/"):]
-		strCount := req.URL.Path[len("/artist/"+handle)-1:]
+		args := strings.Split(req.URL.Path, "/")
+		handle := args[2]
+		strCount := args[3]
+
 		if strCount == "" {
 			panic("count is empty")
 		}
@@ -35,7 +38,10 @@ func (yAPI *YoutubeAPI) HandleSearchHandler() http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		fmt.Fprintf(w, "Channel Details: %s\nMost Recent Video: %s\n", channelData.ToString(), mostRecentVideoData[0].ToString())
+		fmt.Fprintf(w, "Channel Details: %s", channelData.ToString())
+		for _, video := range mostRecentVideoData {
+			fmt.Fprintf(w, "Video Details: %s", video.ToString())
+		}
 	}
 }
 

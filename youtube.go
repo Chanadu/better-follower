@@ -52,6 +52,9 @@ func (yAPI *YoutubeAPI) RecentVideosByChannelId(channelID string, count int) (vi
 	if count <= 0 {
 		return videoData, fmt.Errorf("count must be greater than 0")
 	}
+	if count > 100 {
+		return videoData, fmt.Errorf("count must be less than 101")
+	}
 
 	videoSearchCall := yAPI.YoutubeService.Search.List([]string{"snippet"}).
 		ChannelId(channelID).
